@@ -42,80 +42,58 @@ def parse_annotation(annotation_path):
 
 
 
-def create_data_lists(voc07_path, voc12_path, output_folder):
-    """
-    Create lists of images, the bounding boxes and labels of the objects in these images, and save these to file.
+def create_data_lists(bccd_path, output_folder):
+    bccd_path = os.path.abspath(bccd_path)
 
-    :param voc07_path: path to the 'VOC2007' folder
-    :param voc12_path: path to the 'VOC2012' folder
-    :param output_folder: folder where the JSONs must be saved
-    """
-    voc07_path = os.path.abspath(voc07_path)
-    voc12_path = os.path.abspath(voc12_path)
+    train_images, train_objects = [], []
+    test_images, test_objects = [], []
 
-    train_images = list()
-    train_objects = list()
-    n_objects = 0
+    # Разделим на TRAIN и TEST по папкам (BCCD обычно: images/TRAIN, images/TEST)
+    for split in ['TRAIN', 'TEST']:
+        split_path = os.path.join(bccd_path, 'images', split)
+        annotation_path = os.path.join(bccd_path, 'annotations', split)
 
-    # Training data
-    for path in [voc07_path, voc12_path]:
+        images_list = []
+        objects_list = []
 
-        # Find IDs of images in training data
-        with open(os.path.join(path, 'ImageSets/Main/trainval.txt')) as f:
-            ids = f.read().splitlines()
-
-        for id in ids:
-            # Parse annotation's XML file
-            objects = parse_annotation(os.path.join(path, 'Annotations', id + '.xml'))
-            if len(objects['boxes']) == 0:
+        for file in os.listdir(annotation_path):
+            if not file.endswith('.xml'):
                 continue
-            n_objects += len(objects)
-            train_objects.append(objects)
-            train_images.append(os.path.join(path, 'JPEGImages', id + '.jpg'))
+            ann_path = os.path.join(annotation_path, file)
+            objs = parse_annotation(ann_path)
+            if len(objs['boxes']) == 0:
+                continue
+            objects_list.append(objs)
+            img_name = file.replace('.xml', '.png')  # В BCCD изображения в PNG
+            images_list.append(os.path.join(split_path, img_name))
 
-    assert len(train_objects) == len(train_images)
+        if split == 'TRAIN':
+            train_images = images_list
+            train_objects = objects_list
+        else:
+            test_images = images_list
+            test_objects = objects_list
 
-    # Save to file
-    with open(os.path.join(output_folder, 'TRAIN_images.json'), 'w') as j:
-        json.dump(train_images, j)
-    with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
-        json.dump(train_objects, j)
-    with open(os.path.join(output_folder, 'label_map.json'), 'w') as j:
-        json.dump(label_map, j)  # save label map too
+    os.makedirs(output_folder, exist_ok=True)
+    # Сохраняем JSON
+    json.dump(train_images, open(os.path.join(output_folder, 'TRAIN_images.json'), 'w'))
+    json.dump(train_objects, open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w'))
+    json.dump(test_images, open(os.path.join(output_folder, 'TEST_images.json'), 'w'))
+    json.dump(test_objects, open(os.path.join(output_folder, 'TEST_objects.json'), 'w'))
+    json.dump(label_map, open(os.path.join(output_folder, 'label_map.json'), 'w'))
 
-    print('\nThere are %d training images containing a total of %d objects. Files have been saved to %s.' % (
-        len(train_images), n_objects, os.path.abspath(output_folder)))
-
-    # Test data
-    test_images = list()
-    test_objects = list()
-    n_objects = 0
-
-    # Find IDs of images in the test data
-    with open(os.path.join(voc07_path, 'ImageSets/Main/test.txt')) as f:
-        ids = f.read().splitlines()
-
-    for id in ids:
-        # Parse annotation's XML file
-        objects = parse_annotation(os.path.join(voc07_path, 'Annotations', id + '.xml'))
-        if len(objects) == 0:
-            continue
-        test_objects.append(objects)
-        n_objects += len(objects)
-        test_images.append(os.path.join(voc07_path, 'JPEGImages', id + '.jpg'))
-
-    assert len(test_objects) == len(test_images)
-
-    # Save to file
-    with open(os.path.join(output_folder, 'TEST_images.json'), 'w') as j:
-        json.dump(test_images, j)
-    with open(os.path.join(output_folder, 'TEST_objects.json'), 'w') as j:
-        json.dump(test_objects, j)
-
-    print('\nThere are %d test images containing a total of %d objects. Files have been saved to %s.' % (
-        len(test_images), n_objects, os.path.abspath(output_folder)))
+    print(f'Создано {len(train_images)} тренировочных и {len(test_images)} тестовых изображений.')
+    print(f'JSON сохранены в {output_folder}')
 
 
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--bccd_path', type=str, required=True, help='Путь к папке BCCD')
+    parser.add_argument('--output_folder', type=str, default='BCCD_JSON', help='Папка для сохранения JSON')
+    args = parser.parse_args()
+
+    create_data_lists(args.bccd_path, args.output_folder)
 def decimate(tensor, m):
     """
     Decimate a tensor by a factor 'm', i.e. downsample by keeping every 'm'th value.
