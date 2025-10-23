@@ -1,54 +1,47 @@
-import os
 import torch
 from torch.utils.data import Dataset
+import json
 from PIL import Image
-import xml.etree.ElementTree as ET
+import os
+from utils import transform  # твой transform из utils.py
 
 class BCCDDataset(Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, data_folder, split):
         """
-        root_dir: путь к папке BCCD_Dataset
-        transform: torchvision.transforms для изображений
+        data_folder: путь к папке с JSON (например, BCCD_JSON)
+        split: 'TRAIN' или 'TEST'
         """
-        self.root_dir = root_dir
-        self.transform = transform
-        self.images = sorted(os.listdir(os.path.join(root_dir, "images")))
-        self.annots = sorted(os.listdir(os.path.join(root_dir, "annotations")))
+        self.split = split.upper()
+        assert self.split in {'TRAIN', 'TEST'}
 
-        # карта классов
-        self.class_dict = {"RBC": 1, "WBC": 2, "Platelets": 3}  # 0 зарезервирован под фон
+        # Загружаем пути к изображениям и объекты
+        with open(os.path.join(data_folder, f'{self.split}_images.json')) as j:
+            self.images = json.load(j)
+
+        with open(os.path.join(data_folder, f'{self.split}_objects.json')) as j:
+            self.objects = json.load(j)
+
+        # Загружаем label_map
+        with open(os.path.join(data_folder, 'label_map.json')) as j:
+            self.label_map = json.load(j)
+
+    def __getitem__(self, index):
+        # Загружаем изображение
+        img_path = self.images[index]
+        image = Image.open(img_path).convert('RGB')
+
+        # Загружаем bounding boxes, labels, difficulties
+        obj = self.objects[index]
+        boxes = torch.FloatTensor(obj['boxes'])         # (n_objects, 4)
+        labels = torch.LongTensor(obj['labels'])       # (n_objects)
+        difficulties = torch.ByteTensor(obj['difficulties'])  # (n_objects)
+
+        # Применяем аугментации и преобразования
+        image, boxes, labels, difficulties = transform(
+            image, boxes, labels, difficulties, self.split
+        )
+
+        return image, boxes, labels, difficulties
 
     def __len__(self):
         return len(self.images)
-
-    def __getitem__(self, idx):
-        # загрузка изображения
-        img_path = os.path.join(self.root_dir, "images", self.images[idx])
-        image = Image.open(img_path).convert("RGB")
-        width, height = image.size
-
-        # загрузка аннотации
-        annot_path = os.path.join(self.root_dir, "annotations", self.annots[idx])
-        boxes = []
-        labels = []
-        tree = ET.parse(annot_path)
-        root = tree.getroot()
-        for obj in root.findall("object"):
-            label = obj.find("name").text
-            labels.append(self.class_dict[label])
-            bndbox = obj.find("bndbox")
-            xmin = float(bndbox.find("xmin").text) / width
-            ymin = float(bndbox.find("ymin").text) / height
-            xmax = float(bndbox.find("xmax").text) / width
-            ymax = float(bndbox.find("ymax").text) / height
-            boxes.append([xmin, ymin, xmax, ymax])
-
-        boxes = torch.tensor(boxes, dtype=torch.float32)
-        labels = torch.tensor(labels, dtype=torch.long)
-
-        if self.transform:
-            image = self.transform(image)
-
-        target = {"boxes": boxes, "labels": labels}
-
-        return image, target
