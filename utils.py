@@ -18,32 +18,21 @@ distinct_colors = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8']  # 3 класса
 label_color_map = {k: distinct_colors[i] for i, k in enumerate(label_map.keys())}
 
 
-def parse_annotation(annotation_path):
-    tree = ET.parse(annotation_path)
-    root = tree.getroot()
+def parse_bccd_annotation(annotation_path):
+    with open(annotation_path) as f:
+        objects = json.load(f)
 
-    boxes = list()
-    labels = list()
-    difficulties = list()
-    for object in root.iter('object'):
+    boxes = []
+    labels = []
+    difficulties = []
 
-        difficult = int(object.find('difficult').text == '1')
-
-        label = object.find('name').text.lower().strip()
-        if label not in label_map:
-            continue
-
-        bbox = object.find('bndbox')
-        xmin = int(bbox.find('xmin').text) - 1
-        ymin = int(bbox.find('ymin').text) - 1
-        xmax = int(bbox.find('xmax').text) - 1
-        ymax = int(bbox.find('ymax').text) - 1
-
-        boxes.append([xmin, ymin, xmax, ymax])
-        labels.append(label_map[label])
-        difficulties.append(difficult)
+    for obj in objects:
+        boxes.append(obj['bbox'])  # [xmin, ymin, xmax, ymax]
+        labels.append(label_map[obj['class']])
+        difficulties.append(0)  # BCCD не имеет поля difficult
 
     return {'boxes': boxes, 'labels': labels, 'difficulties': difficulties}
+
 
 
 def create_data_lists(voc07_path, voc12_path, output_folder):
