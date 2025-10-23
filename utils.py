@@ -14,13 +14,7 @@ label_map['background'] = 0
 
 rev_label_map = {v: k for k, v in label_map.items()}
 
-voc_labels = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
-              'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
-label_map = {k: v + 1 for v, k in enumerate(voc_labels)}
-label_map['background'] = 0
-rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
-
-distinct_colors = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8']  # 3 класса + background
+distinct_colors = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8']  # 3 класса + backgroun
 label_color_map = {k: distinct_colors[i] for i, k in enumerate(label_map.keys())}
 
 
