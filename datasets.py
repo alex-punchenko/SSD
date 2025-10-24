@@ -5,7 +5,7 @@ from PIL import Image
 import os
 from utils import transform  # твой transform из utils.py
 
-class BCCDDataset(Dataset):
+class PascalVOCDataset(Dataset):
     def __init__(self, data_folder, split):
         """
         data_folder: путь к папке с JSON (например, BCCD_JSON)
