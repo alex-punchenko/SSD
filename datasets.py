@@ -12,7 +12,7 @@ class PascalVOCDataset(Dataset):
         split: 'TRAIN' или 'TEST'
         """
         self.split = split.upper()
-        assert self.split in {'TRAIN', 'TEST'}
+        assert self.split in {'train', 'test'}
 
         # Загружаем пути к изображениям и объекты
         with open(os.path.join(data_folder, f'{self.split}_images.json')) as j:
